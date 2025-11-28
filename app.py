@@ -32,11 +32,12 @@ if st.button("Carregar dados"):
 
         # Converter tuple do banco para texto
         patient_data_str = (
-            f"ID: {data[0]}\n"
-            f"Nome: {data[1]}\n"
-            f"Idade: {data[2]}\n"
-            f"Sintomas: {data[3]}"
+            f"ID: {data[0] if isinstance(data, tuple) else data['id']}\n"
+            f"Nome: {data[1] if isinstance(data, tuple) else data['name']}\n"
+            f"Idade: {data[2] if isinstance(data, tuple) else data['age']}\n"
+            f"Sintomas: {data[3] if isinstance(data, tuple) else data['symptoms']}"
         )
+
 
         if st.button("Executar agente"):
             with st.spinner("Analisando com CrewAI..."):
