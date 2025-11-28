@@ -3,47 +3,45 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
+# Carrega .env
 load_dotenv()
 
-# 1 - tenta pegar chave do .env
 api_key = os.getenv("OPENAI_API_KEY")
 
-# 2 - tenta pegar do secrets
 if not api_key:
     try:
         api_key = st.secrets["OPENAI_API_KEY"]
     except Exception:
         api_key = None
 
-# 3 - erro caso não exista chave
 if not api_key:
-    print("❌ ERRO: OPENAI_API_KEY não encontrada.")
-    raise ValueError("Nenhuma chave OPENAI_API_KEY encontrada.")
+    raise ValueError(
+        "\n❌ ERRO: Nenhuma chave OPENAI_API_KEY foi encontrada.\n"
+        "➡️ Local: verifique seu arquivo .env\n"
+        "➡️ Cloud: adicione a chave em Settings → Secrets\n"
+    )
 
 client = OpenAI(api_key=api_key)
 
+
+# --- CrewAI ---
 from crewai import Agent, Task, Crew
 
 
 def run_triage_agent(patient_data: str):
-
-    # Tratamento de erro de entrada
-    if not patient_data or not isinstance(patient_data, str):
-        return "❌ Erro: dados do paciente inválidos para análise."
-
     try:
         agent = Agent(
             role="Assistente de Triagem",
-            goal="Gerar triagem médica baseada nos dados do paciente.",
-            backstory="Você é um agente clínico experiente.",
+            goal="Analisar dados clínicos e gerar insights.",
+            backstory="Você é um agente clínico especializado em triagem.",
             model="gpt-4o-mini",
-            verbose=False
+            verbose=True
         )
 
         task = Task(
             description=(
-                f"Analise os dados do paciente:\n\n{patient_data}\n\n"
-                "Gere uma triagem resumida, achados e condutas."
+                f"Analise os dados do paciente:\n{patient_data}\n\n"
+                "Gere uma triagem resumida com hipóteses e próximos passos."
             ),
             agent=agent
         )
@@ -51,23 +49,12 @@ def run_triage_agent(patient_data: str):
         crew = Crew(
             agents=[agent],
             tasks=[task],
-            verbose=False
+            verbose=True
         )
 
-        # EXECUÇÃO COM TRY
         result = crew.kickoff()
-
-        # Alguns retornam obj — garantimos string
-        return str(result)
+        return result
 
     except Exception as e:
-        import traceback
-        error_log = traceback.format_exc()
-        print("❌ ERRO AO EXECUTAR AGENTE:")
-        print(error_log)
-
-        # Retorno seguro para o Streamlit
-        return (
-            "❌ Não foi possível gerar a triagem no momento.\n"
-            "O erro foi registrado nos logs para análise."
-        )
+        # Retorno mínimo para evitar crash
+        return f"❌ Não foi possível gerar a triagem: {str(e)}"
