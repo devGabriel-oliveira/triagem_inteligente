@@ -1,81 +1,73 @@
-# app.py
+import os
 import streamlit as st
 from dotenv import load_dotenv
-import os
-from auth import login
-from database import get_patient_data, init_db
-from agent import run_triage_agent
+from openai import OpenAI
 
-# Inicializa DB (cria se não existir)
-init_db()
-
-# Carrega .env local (para desenvolvimento)
 load_dotenv()
 
-st.set_page_config(page_title="Triagem Inteligente", layout="wide")
-st.title("🩺 Sistema Inteligente de Triagem com CrewAI")
+# 1 - tenta pegar chave do .env
+api_key = os.getenv("OPENAI_API_KEY")
 
-# Autenticação simples
-if not login():
-    st.stop()
-
-st.subheader("Buscar Paciente")
-
-# ID input
-patient_id = st.number_input("ID do paciente", min_value=1, step=1, key="patient_id_input")
-
-# Carregar dados (mantém em session_state)
-if st.button("Carregar dados"):
+# 2 - tenta pegar do secrets
+if not api_key:
     try:
-        data = get_patient_data(patient_id)
-        if not data:
-            st.error("Paciente não encontrado.")
-            st.session_state["patient_loaded"] = False
-            st.session_state.pop("patient_data", None)
-        else:
-            # data expected as dict: {"id":..., "name":..., "age":..., "symptoms":...}
-            st.success("Dados carregados com sucesso!")
-            st.session_state["patient_loaded"] = True
-            st.session_state["patient_data"] = data
+        api_key = st.secrets["OPENAI_API_KEY"]
+    except Exception:
+        api_key = None
+
+# 3 - erro caso não exista chave
+if not api_key:
+    print("❌ ERRO: OPENAI_API_KEY não encontrada.")
+    raise ValueError("Nenhuma chave OPENAI_API_KEY encontrada.")
+
+client = OpenAI(api_key=api_key)
+
+from crewai import Agent, Task, Crew
+
+
+def run_triage_agent(patient_data: str):
+
+    # Tratamento de erro de entrada
+    if not patient_data or not isinstance(patient_data, str):
+        return "❌ Erro: dados do paciente inválidos para análise."
+
+    try:
+        agent = Agent(
+            role="Assistente de Triagem",
+            goal="Gerar triagem médica baseada nos dados do paciente.",
+            backstory="Você é um agente clínico experiente.",
+            model="gpt-4o-mini",
+            verbose=False
+        )
+
+        task = Task(
+            description=(
+                f"Analise os dados do paciente:\n\n{patient_data}\n\n"
+                "Gere uma triagem resumida, achados e condutas."
+            ),
+            agent=agent
+        )
+
+        crew = Crew(
+            agents=[agent],
+            tasks=[task],
+            verbose=False
+        )
+
+        # EXECUÇÃO COM TRY
+        result = crew.kickoff()
+
+        # Alguns retornam obj — garantimos string
+        return str(result)
+
     except Exception as e:
-        st.error("Erro ao carregar dados do paciente")
-        st.exception(e)
-        st.session_state["patient_loaded"] = False
-        st.session_state.pop("patient_data", None)
+        import traceback
+        error_log = traceback.format_exc()
+        print("❌ ERRO AO EXECUTAR AGENTE:")
+        print(error_log)
 
-# Mostrar dados carregados
-if st.session_state.get("patient_loaded", False):
-    patient = st.session_state.get("patient_data", {})
-    st.write("### Dados do Paciente")
-    st.write(f"**ID:** {patient.get('id')}")
-    st.write(f"**Nome:** {patient.get('name')}")
-    st.write(f"**Idade:** {patient.get('age')}")
-    st.write(f"**Sintomas:** {patient.get('symptoms')}")
-
-    # Monta patient_info texto para enviar ao agente
-    patient_info = (
-        f"ID: {patient.get('id')}\n"
-        f"Nome: {patient.get('name')}\n"
-        f"Idade: {patient.get('age')}\n"
-        f"Sintomas: {patient.get('symptoms')}\n"
-    )
-
-    st.subheader("Análise automática (IA)")
-    # Botão que executa o agente; botão separado do carregar dados evita perda de estado
-    if st.button("Executar Agente"):
-        try:
-            with st.spinner("Analisando com CrewAI..."):
-                # chama agente (garante retorno em string)
-                result = run_triage_agent(patient_info)
-
-            # Mostrar resultado (se vazio, avisar)
-            if result and str(result).strip():
-                st.subheader("Resultado da Triagem")
-                st.write(result)
-            else:
-                st.warning("O agente não retornou texto. Verifique logs.")
-        except Exception as e:
-            st.error("❌ ERRO AO EXECUTAR O AGENTE")
-            st.exception(e)
-else:
-    st.info("Carregue os dados do paciente (ID) e então execute a análise.")
+        # Retorno seguro para o Streamlit
+        return (
+            "❌ Não foi possível gerar a triagem no momento.\n"
+            "O erro foi registrado nos logs para análise."
+        )
