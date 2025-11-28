@@ -40,8 +40,17 @@ if st.button("Carregar dados"):
 
 
         if st.button("Executar agente"):
+            patient_data_str = (
+                f"ID: {data[0]}\n"
+                f"Nome: {data[1]}\n"
+                f"Idade: {data[2]}\n"
+                f"Sintomas: {data[3]}"
+            )
+
             with st.spinner("Analisando com CrewAI..."):
                 result = run_triage_agent(patient_data_str)
 
             st.subheader("Resultado da Triagem")
             st.write(result)
+
+
