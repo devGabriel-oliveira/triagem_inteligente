@@ -6,6 +6,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "database.db")
 def connect():
     return sqlite3.connect(DB_PATH)
 
+
 def get_patient_data(patient_id):
     conn = connect()
     cursor = conn.cursor()
@@ -16,9 +17,20 @@ def get_patient_data(patient_id):
         WHERE id = ?
     """, (patient_id,))
 
-    data = cursor.fetchone()
+    row = cursor.fetchone()
     conn.close()
-    return data
+
+    if not row:
+        return None
+
+    # Converte a tupla em dicionário
+    return {
+        "id": row[0],
+        "name": row[1],
+        "age": row[2],
+        "symptoms": row[3]
+    }
+
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
