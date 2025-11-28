@@ -2,55 +2,46 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
-
-# Carrega .env localmente (não afeta Streamlit Cloud)
-load_dotenv()
-
-# 1️⃣ Tenta pegar do ambiente local (.env)
-api_key = os.getenv("OPENAI_API_KEY")
-
-# 2️⃣ Se não existir, tenta pegar do Streamlit Secrets
-if not api_key:
-    try:
-        api_key = st.secrets["OPENAI_API_KEY"]
-    except Exception:
-        api_key = None
-
-# 3️⃣ Se ainda for None → ERRO CLARO
-if not api_key:
-    raise ValueError(
-        "\n❌ ERRO: Nenhuma chave OPENAI_API_KEY foi encontrada.\n"
-        "➡️ Local: verifique seu arquivo .env\n"
-        "➡️ Cloud: adicione a chave em Settings → Secrets\n"
-    )
-
-# 4️⃣ Criar cliente OpenAI com a API correta
-client = OpenAI(api_key=api_key)
-
-
-# --- SUA LÓGICA DO AGENTE CREWAI ---
 from crewai import Agent, Task, Crew
 
+load_dotenv()
+
+# Pegando API Key
+api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY", None)
+
+if not api_key:
+    raise ValueError("❌ Nenhuma OPENAI_API_KEY configurada!")
+
+client = OpenAI(api_key=api_key)
+
 def run_triage_agent(patient_data: str):
+
     agent = Agent(
         role="Assistente de Triagem",
-        goal="Analisar dados clínicos e gerar insights para o médico.",
-        backstory="Você é um agente de saúde especializado em triagens rápidas.",
+        goal="Gerar uma triagem clínica precisa baseada nos dados do paciente.",
+        backstory="Você é um agente médico treinado para auxiliar triagens hospitalares.",
         model="gpt-4o-mini",
-        verbose=True
+        verbose=False
     )
 
     task = Task(
-        description=f"Analise os dados do paciente:\n{patient_data}\n\n"
-                    "Gere uma triagem resumida, suspeitas clínicas e próximos passos.",
+        description=(
+            "Analise as seguintes informações do paciente e produza um relatório clínico:\n\n"
+            f"{patient_data}\n\n"
+            "Inclua: sinais de alerta, hipóteses diagnósticas e recomendações médicas."
+        ),
         agent=agent
     )
 
     crew = Crew(
         agents=[agent],
         tasks=[task],
-        verbose=True
+        verbose=False
     )
 
     result = crew.kickoff()
-    return result
+
+    # Aqui está a correção!
+    if hasattr(result, "raw"):
+        return result.raw
+    return str(result)
