@@ -57,6 +57,7 @@ if st.button("Carregar dados"):
         if st.button("Executar Agente"):
             with st.spinner("Analisando com CrewAI..."):
                 result = run_triage_agent(patient_info)
-
+            
             st.subheader("Resultado da Triagem")
-            st.write(result)
+            st.write(result if result else "⚠️ Nenhum retorno gerado pelo agente.")
+
