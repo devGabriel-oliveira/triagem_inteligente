@@ -32,8 +32,8 @@ def run_triage_agent(patient_data: str):
     try:
         agent = Agent(
             role="Assistente de Triagem",
-            goal="Analisar dados clínicos e gerar insights.",
-            backstory="Você é um agente clínico especializado em triagem.",
+            goal="Analisar dados clínicos e gerar insights para o médico.",
+            backstory="Você é um agente de saúde especializado em triagens rápidas.",
             model="gpt-4o-mini",
             verbose=True
         )
@@ -41,7 +41,7 @@ def run_triage_agent(patient_data: str):
         task = Task(
             description=(
                 f"Analise os dados do paciente:\n{patient_data}\n\n"
-                "Gere uma triagem resumida com hipóteses e próximos passos."
+                "Gere uma triagem resumida, suspeitas clínicas e próximos passos."
             ),
             agent=agent
         )
@@ -53,8 +53,16 @@ def run_triage_agent(patient_data: str):
         )
 
         result = crew.kickoff()
-        return result
+
+        if not result:
+            return "⚠️ O agente não retornou nenhuma resposta."
+
+        # Se for TaskResult
+        if hasattr(result, "output"):
+            return result.output
+
+        return str(result)
 
     except Exception as e:
-        # Retorno mínimo para evitar crash
-        return f"❌ Não foi possível gerar a triagem: {str(e)}"
+        return f"❌ Erro ao executar agente: {e}"
+
