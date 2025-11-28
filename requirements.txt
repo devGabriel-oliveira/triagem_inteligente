@@ -1,0 +1,9 @@
+streamlit
+python-dotenv
+openai>=1.40
+crewai
+crewai-tools
+pandas
+tabulate
+pydantic
+requests
